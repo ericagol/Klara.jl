@@ -95,7 +95,9 @@ export
   DiscreteParameterNState,
   DiscreteParameterState,
   DualAveragingMCTuner,
+  Factor,
   GenericModel,
+  GibbsFactor,
   GibbsJob,
   HMC,
   HMCSampler,
@@ -261,6 +263,9 @@ include("data.jl")
 include("codegen.jl")
 
 include("stats/logistic.jl")
+
+include("factors/factors.jl")
+include("factors/GibbsFactor.jl")
 
 include("distributions/Binary.jl")
 include("distributions/TruncatedNormal.jl")
