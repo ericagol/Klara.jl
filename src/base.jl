@@ -1,3 +1,6 @@
+typealias RealPair{F<:Real, S<:Real} Pair{F, S}
+typealias RealPairVector{P<:RealPair} Vector{P}
+
 typealias IntegerVector{I<:Integer} Vector{I}
 typealias RealVector{N<:Real} Vector{N}
 typealias RealMatrix{N<:Real} Matrix{N}

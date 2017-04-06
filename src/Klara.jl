@@ -145,6 +145,8 @@ export
   RAMState,
   Random,
   RealMatrix,
+  RealPair,
+  RealPairVector,
   RealVector,
   RobertsRosenthalMCTune,
   RobertsRosenthalMCTuner,

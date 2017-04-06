@@ -3,6 +3,8 @@ type GibbsFactor <: Factor
   logpotentials::FunctionVector
   vertices::Vector{Symbol}
   vertextypes::Vector{DataType}
+  support::RealPairVector
+  transform::Vector{Symbol} # :none or :log
   ofvertex::Dict{Symbol, Integer}
 end
 
@@ -15,12 +17,14 @@ GibbsFactor(
   logpotentials::FunctionVector,
   vertices::Vector{Symbol},
   vertextypes::Vector{DataType},
+  support::RealPairVector,
+  transform::Vector{Symbol},
   n::Integer=length(vertices)
 ) =
-  GibbsFactor(cliques, logpotentials, vertices, vertextypes, Dict(zip(vertices, 1:n)))
+  GibbsFactor(cliques, logpotentials, vertices, vertextypes, support, transform, Dict(zip(vertices, 1:n)))
 
 GibbsFactor(cliques::Vector{Vector{Symbol}}, logpotentials::FunctionVector, vertices::Vector{Symbol}) =
-  GibbsFactor(cliques, logpotentials, vertices, DataType[])
+  GibbsFactor(cliques, logpotentials, vertices, DataType[], RealPair[], Symbol[])
 
 GibbsFactor(cliques::Vector{Vector{Symbol}}, logpotentials::FunctionVector) =
   GibbsFactor(cliques, logpotentials, unique(vcat(cliques...)))
@@ -29,20 +33,43 @@ function GibbsFactor(
   cliques::Vector{Vector{Symbol}},
   logpotentials::FunctionVector,
   vertextypes::Dict{Symbol, DataType},
+  support::Dict{Symbol, RealPair},
+  transform::Dict{Symbol, Symbol},
   n::Integer=length(vertextypes)
 )
   local vkeys::Vector{Symbol} = Array(Symbol, n)
-  local vvals::Vector{Symbol} = Array(Symbol, n)
+  local vvalues::Vector{DataType} = Array(DataType, n)
+  local vsupport::RealPairVector = Array(RealPair, n)
+  local vtransform::Vector{Symbol} = Array(Symbol, n)
   local i::Int64 = 1
 
   for (k, v) in vertextypes
     vkeys[i] = k
-    vvals[i] = v
+    vvalues[i] = v
+    vsupport[i] = get(support, k, Pair(-Inf, Inf))
+    vtransform[i] = get(transform, k, :none)
     i += 1
   end
 
-  return GibbsFactor(cliques, logpotentials, vkeys, vvals, n)
+  return GibbsFactor(cliques, logpotentials, vkeys, vvalues, vsupport, vtransform, n)
 end
+
+GibbsFactor(
+  cliques::Vector{Vector{Symbol}},
+  logpotentials::FunctionVector,
+  vertextypes::Dict;
+  support::Dict=Dict{Symbol, RealPair}(),
+  transform::Dict=Dict{Symbol, Symbol}(),
+  n::Integer=length(vertextypes)
+) =
+  GibbsFactor(
+    cliques,
+    logpotentials,
+    convert(Dict{Symbol, DataType}, vertextypes),
+    convert(Dict{Symbol, RealPair}, support),
+    convert(Dict{Symbol, Symbol}, transform),
+    n
+  )
 
 function codegen_logtarget(f::GibbsFactor, i::Integer, nc::Integer=num_cliques(f))
   local body = [:(_state.logtarget = 0.)]
