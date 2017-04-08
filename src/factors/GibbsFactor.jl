@@ -1,10 +1,12 @@
 type GibbsFactor <: Factor
   cliques::Vector{Vector{Symbol}}
   logpotentials::FunctionVector
+  assignments::Vector{Pair{Symbol, Vector{Symbol}}}
+  transforms::FunctionVector
   vertices::Vector{Symbol}
   vertextypes::Vector{DataType}
   support::RealPairVector
-  transform::Vector{Symbol} # :none or :log
+  reparametrization::Vector{Symbol} # :none or :log
   ofvertex::Dict{Symbol, Integer}
 end
 
@@ -18,10 +20,10 @@ GibbsFactor(
   vertices::Vector{Symbol},
   vertextypes::Vector{DataType},
   support::RealPairVector,
-  transform::Vector{Symbol},
+  reparametrization::Vector{Symbol},
   n::Integer=length(vertices)
 ) =
-  GibbsFactor(cliques, logpotentials, vertices, vertextypes, support, transform, Dict(zip(vertices, 1:n)))
+  GibbsFactor(cliques, logpotentials, vertices, vertextypes, support, reparametrization, Dict(zip(vertices, 1:n)))
 
 GibbsFactor(cliques::Vector{Vector{Symbol}}, logpotentials::FunctionVector, vertices::Vector{Symbol}) =
   GibbsFactor(cliques, logpotentials, vertices, DataType[], RealPair[], Symbol[])
@@ -34,7 +36,7 @@ function GibbsFactor(
   logpotentials::FunctionVector,
   vertextypes::Dict{Symbol, DataType},
   support::Dict{Symbol, RealPair},
-  transform::Dict{Symbol, Symbol},
+  reparametrization::Dict{Symbol, Symbol},
   n::Integer=length(vertextypes)
 )
   local vkeys::Vector{Symbol} = Array(Symbol, n)
@@ -47,7 +49,7 @@ function GibbsFactor(
     vkeys[i] = k
     vvalues[i] = v
     vsupport[i] = get(support, k, Pair(-Inf, Inf))
-    vtransform[i] = get(transform, k, :none)
+    vtransform[i] = get(reparametrization, k, :none)
     i += 1
   end
 
@@ -59,7 +61,7 @@ GibbsFactor(
   logpotentials::FunctionVector,
   vertextypes::Dict;
   support::Dict=Dict{Symbol, RealPair}(),
-  transform::Dict=Dict{Symbol, Symbol}(),
+  reparametrization::Dict=Dict{Symbol, Symbol}(),
   n::Integer=length(vertextypes)
 ) =
   GibbsFactor(
@@ -67,7 +69,7 @@ GibbsFactor(
     logpotentials,
     convert(Dict{Symbol, DataType}, vertextypes),
     convert(Dict{Symbol, RealPair}, support),
-    convert(Dict{Symbol, Symbol}, transform),
+    convert(Dict{Symbol, Symbol}, reparametrization),
     n
   )
 
