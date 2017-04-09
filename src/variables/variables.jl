@@ -56,7 +56,7 @@ end
 
 show(io::IO, v::Variable) = print(io, "Variable [$(v.index)]: $(v.key) ($(typeof(v)))")
 
-### Deterministic Variable subtypes
+### Deterministic Variable subtypes include Constant, Data and Transformation
 
 ## Constant
 
@@ -84,7 +84,7 @@ typealias Hyperparameter Constant
 type Data <: Variable{Deterministic}
   key::Symbol
   index::Integer
-  update::Union{Function, Void}
+  update!::Union{Function, Void}
 end
 
 Data(key::Symbol, index::Integer) = Data(key, index, nothing)
@@ -104,15 +104,37 @@ dotshape(variable::Data) = "box"
 type Transformation <: Variable{Deterministic}
   key::Symbol
   index::Integer
-  transform::Function
-  states::VariableStateVector
+  transform!::Union{Function, Void}
 end
 
-Transformation(key::Symbol, index::Integer, transform::Function=()->()) =
-  Transformation(key, index, transform, VariableState[])
+Transformation(key::Symbol, index::Integer=0; signature::Symbol=:high, args...) =
+  Transformation(key, Val{signature}, index; args...)
 
-Transformation(key::Symbol, transform::Function=()->(), states::VariableStateVector=VariableState[]) =
-  Transformation(key, 0, transform, states)
+Transformation(key::Symbol, ::Type{Val{:low}}, index::Integer=0; transform::Union{Function, Void}=nothing) =
+  Transformation(key, index, transform)
+
+function Transformation(
+  key::Symbol,
+  ::Type{Val{:high}},
+  index::Integer=0;
+  transform::Union{Function, Void}=nothing,
+  nkeys::Integer=1,
+  vfarg::Bool=false,
+  statetype::Union{Symbol, Void}=nothing
+)
+  @assert nkeys > 0 "nkeys must be positive for transformations, got $nkeys"
+  Transformation(
+    key,
+    index,
+    if isa(transform, Function)
+      eval(
+        codegen_lowlevel_variable_method(transform, statetype=statetype, returns=Symbol[:value], vfarg=vfarg, nkeys=nkeys)
+      )
+    else
+      nothing
+    end
+  )
+end
 
 default_state{N<:Number}(variable::Transformation, value::N) = BasicUnvVariableState(value)
 default_state{N<:Number}(variable::Transformation, value::Vector{N}) = BasicMuvVariableState(value)

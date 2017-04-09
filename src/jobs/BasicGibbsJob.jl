@@ -266,7 +266,7 @@ function codegen(::Type{Val{:iterate}}, job::BasicGibbsJob)
         push!(body, :(_job.dpstate[$j].value = rand(_job.dependent[$j].pdf)))
       end
     else
-      push!(body, :(_job.dependent[$j].transform!(_job.dpstate[$j])))
+      push!(body, :(_job.dependent[$j].transform!(_job.dependent[$j], _job.dpstate[$j])))
     end
   end
 
