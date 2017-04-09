@@ -104,7 +104,7 @@ dotshape(variable::Data) = "box"
 type Transformation <: Variable{Deterministic}
   key::Symbol
   index::Integer
-  transform!::Union{Function, Void}
+  transform::Union{Function, Void}
 end
 
 Transformation(key::Symbol, index::Integer=0; signature::Symbol=:high, args...) =
@@ -118,9 +118,7 @@ function Transformation(
   ::Type{Val{:high}},
   index::Integer=0;
   transform::Union{Function, Void}=nothing,
-  nkeys::Integer=1,
-  vfarg::Bool=false,
-  statetype::Union{Symbol, Void}=nothing
+  nkeys::Integer=1
 )
   @assert nkeys > 0 "nkeys must be positive for transformations, got $nkeys"
   Transformation(
@@ -128,7 +126,7 @@ function Transformation(
     index,
     if isa(transform, Function)
       eval(
-        codegen_lowlevel_variable_method(transform, statetype=statetype, returns=Symbol[:value], vfarg=vfarg, nkeys=nkeys)
+        codegen_lowlevel_variable_method(transform, statearg=false, vfarg=true, nkeys=nkeys)
       )
     else
       nothing

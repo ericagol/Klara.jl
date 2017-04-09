@@ -1,5 +1,6 @@
 function codegen_lowlevel_variable_method(
   f::Function;
+  statearg::Bool=true,
   statetype::Union{Symbol, Void}=nothing,
   states::Bool=true,
   returns::Vector{Symbol}=Symbol[],
@@ -9,8 +10,9 @@ function codegen_lowlevel_variable_method(
   diffmethod::Union{Symbol, Void}=nothing,
   diffconfig::Union{Symbol, Void}=nothing
 )
+  local args::Vector{Union{Symbol, Expr}} = Union{Symbol, Expr}[]
   local body::Expr
-  local fargs::Vector = []
+  local fargs::Vector{Expr} = Expr[]
   local rvalues::Expr
 
   if vfarg
@@ -21,10 +23,10 @@ function codegen_lowlevel_variable_method(
   end
 
   if vfarg
-    fargs = [Expr(:ref, :Any, [:(_states[$i].value) for i in 1:nkeys]...)]
+    fargs = push!(fargs, Expr(:ref, :Any, [:(_states[$i].value) for i in 1:nkeys]...))
   else
     if diffresult != nothing
-      fargs = [Expr(:., :(_state.diffstate), QuoteNode(diffresult))]
+      fargs = push!(fargs, Expr(:., :(_state.diffstate), QuoteNode(diffresult)))
     end
 
     if diffmethod != nothing
@@ -55,7 +57,10 @@ function codegen_lowlevel_variable_method(
     error("Vector of return symbols must have one or more elements")
   end
 
-  args = Union{Symbol, Expr}[statetype == nothing ? :_state : :(_state::$statetype)]
+  if statearg
+    push!(args, statetype == nothing ? :_state : :(_state::$statetype))
+  end
+
   if states
     push!(args, :(_states::VariableStateVector))
   end
