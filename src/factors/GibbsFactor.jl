@@ -12,7 +12,7 @@ end
 
 num_cliques(f::GibbsFactor) = length(f.cliques)
 
-num_(f::GibbsFactor) = length(f.assignments)
+num_transforms(f::GibbsFactor) = length(f.assignments)
 
 num_vertices(f::GibbsFactor) = length(f.vertices)
 

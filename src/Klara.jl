@@ -223,6 +223,7 @@ export
   normalise,
   num_cliques,
   num_edges,
+  num_transforms,
   num_vertices,
   open,
   out_degree,
