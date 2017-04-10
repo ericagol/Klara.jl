@@ -42,7 +42,7 @@ GibbsFactor(
 GibbsFactor(
   cliques::Vector{Vector{Symbol}},
   logpotentials::FunctionVector,
-  variables::Vector{Symbol},
+  variables::Vector{Symbol};
   assignments::Vector{Pair{Symbol, Vector{Symbol}}}=Pair{Symbol, Vector{Symbol}}[],
   transforms::FunctionVector=Function[],
   n::Integer=length(variables)
@@ -51,7 +51,7 @@ GibbsFactor(
 
 function GibbsFactor(
   cliques::Vector{Vector{Symbol}},
-  logpotentials::FunctionVector,
+  logpotentials::FunctionVector;
   assignments::Vector{Pair{Symbol, Vector{Symbol}}}=Pair{Symbol, Vector{Symbol}}[],
   transforms::FunctionVector=Function[]
 )
@@ -70,38 +70,86 @@ function GibbsFactor(
   )
 end
 
-# Defined constructors that take only variables as their input
-# To do: constructors for i) joint input of variables and variabletypes, ii) input of variabletypes only
+function GibbsFactor(
+  cliques::Vector{Vector{Symbol}},
+  logpotentials::FunctionVector,
+  variables::Vector{Symbol},
+  variabletypes::Dict{Symbol, DataType};
+  assignments::Vector{Pair{Symbol, Vector{Symbol}}}=Pair{Symbol, Vector{Symbol}}[],
+  transforms::FunctionVector=Function[],
+  support::Dict{Symbol, RealPair}=Dict{Symbol, RealPair}(),
+  reparametrize::Dict{Symbol, Symbol}=Dict{Symbol, Symbol}(),
+  n::Integer=length(variables)
+)
+  local vtypes::Vector{DataType} = Array(DataType, n)
+  local vsupport::RealPairVector = Array(RealPair, n)
+  local vreparametrize::Vector{Symbol} = Array(Symbol, n)
+
+  for (v, i) in zip(variables, 1:n)
+    vtypes[i] = variabletypes[v]
+    vsupport[i] = get(support, v, Pair(-Inf, Inf))
+    vreparametrize[i] = get(reparametrize, v, :none)
+  end
+
+  GibbsFactor(cliques, logpotentials, assignments, transforms, variables, vtypes, vsupport, vreparametrize, n)
+end
+
+GibbsFactor(
+  cliques::Vector{Vector{Symbol}},
+  logpotentials::FunctionVector,
+  variables::Vector{Symbol},
+  variabletypes::Dict;
+  assignments::Vector{Pair{Symbol, Vector{Symbol}}}=Pair{Symbol, Vector{Symbol}}[],
+  transforms::FunctionVector=Function[],
+  support::Dict=Dict{Symbol, RealPair}(),
+  reparametrize::Dict=Dict{Symbol, Symbol}(),
+  n::Integer=length(variables)
+) =
+  GibbsFactor(
+    cliques,
+    logpotentials,
+    variables,
+    convert(Dict{Symbol, DataType}, variabletypes),
+    assignments=assignments,
+    transforms=transforms,
+    support=convert(Dict{Symbol, RealPair}, support),
+    reparametrize=convert(Dict{Symbol, Symbol}, reparametrize),
+    n=n
+  )
 
 function GibbsFactor(
   cliques::Vector{Vector{Symbol}},
   logpotentials::FunctionVector,
-  variabletypes::Dict{Symbol, DataType},
-  support::Dict{Symbol, RealPair},
-  reparametrize::Dict{Symbol, Symbol},
+  variabletypes::Dict{Symbol, DataType};
+  assignments::Vector{Pair{Symbol, Vector{Symbol}}}=Pair{Symbol, Vector{Symbol}}[],
+  transforms::FunctionVector=Function[],
+  support::Dict{Symbol, RealPair}=Dict{Symbol, RealPair}(),
+  reparametrize::Dict{Symbol, Symbol}=Dict{Symbol, Symbol}(),
   n::Integer=length(variabletypes)
 )
-  local vkeys::Vector{Symbol} = Array(Symbol, n)
-  local vvalues::Vector{DataType} = Array(DataType, n)
+  local variables::Vector{Symbol} = Array(Symbol, n)
+  local vtypes::Vector{DataType} = Array(DataType, n)
   local vsupport::RealPairVector = Array(RealPair, n)
-  local vtransform::Vector{Symbol} = Array(Symbol, n)
+  local vreparametrize::Vector{Symbol} = Array(Symbol, n)
   local i::Int64 = 1
 
-  for (k, v) in variabletypes
-    vkeys[i] = k
-    vvalues[i] = v
+  for (k, t) in variabletypes
+    variables[i] = k
+    vtypes[i] = t
     vsupport[i] = get(support, k, Pair(-Inf, Inf))
-    vtransform[i] = get(reparametrize, k, :none)
+    vreparametrize[i] = get(reparametrize, k, :none)
     i += 1
   end
 
-  return GibbsFactor(cliques, logpotentials, vkeys, vvalues, vsupport, vtransform, n)
+  return GibbsFactor(cliques, logpotentials, assignments, transforms, variables, vtypes, vsupport, vreparametrize, n)
 end
 
 GibbsFactor(
   cliques::Vector{Vector{Symbol}},
   logpotentials::FunctionVector,
   variabletypes::Dict;
+  assignments::Vector{Pair{Symbol, Vector{Symbol}}}=Pair{Symbol, Vector{Symbol}}[],
+  transforms::FunctionVector=Function[],
   support::Dict=Dict{Symbol, RealPair}(),
   reparametrize::Dict=Dict{Symbol, Symbol}(),
   n::Integer=length(variabletypes)
@@ -110,9 +158,11 @@ GibbsFactor(
     cliques,
     logpotentials,
     convert(Dict{Symbol, DataType}, variabletypes),
-    convert(Dict{Symbol, RealPair}, support),
-    convert(Dict{Symbol, Symbol}, reparametrize),
-    n
+    assignments=assignments,
+    transforms=transforms,
+    support=convert(Dict{Symbol, RealPair}, support),
+    reparametrize=convert(Dict{Symbol, Symbol}, reparametrize),
+    n=n
   )
 
 function codegen_logtarget(f::GibbsFactor, i::Integer, nc::Integer=num_cliques(f))
