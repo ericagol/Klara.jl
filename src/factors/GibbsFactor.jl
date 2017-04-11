@@ -41,34 +41,17 @@ GibbsFactor(
 
 GibbsFactor(
   cliques::Vector{Vector{Symbol}},
-  logpotentials::FunctionVector,
-  variables::Vector{Symbol};
-  assignments::Vector{Pair{Symbol, Vector{Symbol}}}=Pair{Symbol, Vector{Symbol}}[],
-  transforms::FunctionVector=Function[],
-  n::Integer=length(variables)
-) =
-  GibbsFactor(cliques, logpotentials, assignments, transforms, variables, DataType[], RealPair[], Symbol[], n)
-
-function GibbsFactor(
-  cliques::Vector{Vector{Symbol}},
   logpotentials::FunctionVector;
   assignments::Vector{Pair{Symbol, Vector{Symbol}}}=Pair{Symbol, Vector{Symbol}}[],
-  transforms::FunctionVector=Function[]
-)
-  variables = isempty(assignments) ? unique(vcat(cliques...)) : unique(vcat(cliques..., [a.first for a in assignments]))
-
-  GibbsFactor(
-    cliques,
-    logpotentials,
-    assignments,
-    transforms,
-    variables,
-    DataType[],
-    RealPair[],
-    Symbol[],
-    length(variables)
-  )
-end
+  transforms::FunctionVector=Function[],
+  variables::Vector{Symbol}=
+    isempty(assignments) ? unique(vcat(cliques...)) : unique(vcat(cliques..., [a.first for a in assignments])),
+  variabletypes::Vector{DataType}=DataType[],
+  support::RealPairVector=RealPair[],
+  reparametrize::Vector{Symbol}=Symbol[],
+  n::Integer=length(variables)
+) =
+  GibbsFactor(cliques, logpotentials, assignments, transforms, variables, variabletypes, support, reparametrize, n)
 
 function GibbsFactor(
   cliques::Vector{Vector{Symbol}},
