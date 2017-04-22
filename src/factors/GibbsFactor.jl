@@ -150,7 +150,7 @@ GibbsFactor(
 
 function codegen_logtarget(f::GibbsFactor, i::Integer, nc::Integer=num_cliques(f))
   local body = [:(_state.logtarget = 0.)]
-  local lpargs::Vector
+  local lpargs::Vector{Expr}
 
   for j in 1:nc
     if in(f.variables[i], f.cliques[j])
@@ -173,6 +173,27 @@ function codegen_logtarget(f::GibbsFactor, i::Integer, nc::Integer=num_cliques(f
   quote
     function $logtarget(_state::$(default_state_type(f.variabletypes[i])), _states::VariableStateVector)
       $(body...)
+    end
+  end
+end
+
+function codegen_transform(f::GibbsFactor, i::Integer, nt::Integer=num_transforms(f))
+  local transformations::Vector{Symbol} = Symbol[a.first for a in f.assignments]
+
+  local k::Integer = findfirst(transformations, f.variables[i])
+  @assert k != 0 "Transformation function for variable $(f.variables[i]) has not been provided"
+
+  local lpargs::Vector{Expr} = Expr[]
+
+  for v in f.assignments[k].second
+    push!(lpargs, :(_states[$(f.ofvariable[v])].value))
+  end
+
+  @gensym transform
+
+  quote
+    function $transform(_states::VariableStateVector)
+      f.transforms[$k]($(lpargs...))
     end
   end
 end
