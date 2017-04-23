@@ -103,11 +103,11 @@ GibbsFactor(
 function GibbsFactor(
   cliques::Vector{Vector{Symbol}},
   logpotentials::FunctionVector,
-  variabletypes::Dict{Symbol, DataType};
+  variabletypes::Dict; # ::Dict{Symbol, DataType};
   assignments::Vector{Pair{Symbol, Vector{Symbol}}}=Pair{Symbol, Vector{Symbol}}[],
   transforms::FunctionVector=Function[],
-  support::Dict{Symbol, RealPair}=Dict{Symbol, RealPair}(),
-  reparametrize::Dict{Symbol, Symbol}=Dict{Symbol, Symbol}(),
+  support::Dict=Dict{Symbol, RealPair}(), # Dict{Symbol, RealPair}=Dict{Symbol, RealPair}(),
+  reparametrize::Dict=Dict{Symbol, Symbol}(), # ::Dict{Symbol, Symbol}=Dict{Symbol, Symbol}(),
   n::Integer=length(variabletypes)
 )
   local variables::Vector{Symbol} = Array(Symbol, n)
@@ -127,30 +127,10 @@ function GibbsFactor(
   return GibbsFactor(cliques, logpotentials, assignments, transforms, variables, vtypes, vsupport, vreparametrize, n)
 end
 
-GibbsFactor(
-  cliques::Vector{Vector{Symbol}},
-  logpotentials::FunctionVector,
-  variabletypes::Dict;
-  assignments::Vector{Pair{Symbol, Vector{Symbol}}}=Pair{Symbol, Vector{Symbol}}[],
-  transforms::FunctionVector=Function[],
-  support::Dict=Dict{Symbol, RealPair}(),
-  reparametrize::Dict=Dict{Symbol, Symbol}(),
-  n::Integer=length(variabletypes)
-) =
-  GibbsFactor(
-    cliques,
-    logpotentials,
-    convert(Dict{Symbol, DataType}, variabletypes),
-    assignments=assignments,
-    transforms=transforms,
-    support=convert(Dict{Symbol, RealPair}, support),
-    reparametrize=convert(Dict{Symbol, Symbol}, reparametrize),
-    n=n
-  )
-
-function codegen_logtarget(f::GibbsFactor, i::Integer, nc::Integer=num_cliques(f))
+function codegen_logtarget(f::GibbsFactor, i::Integer, nc::Integer=num_cliques(f), nv::Integer=num_vertices(f))
   local body = [:(_state.logtarget = 0.)]
   local lpargs::Vector{Expr}
+  local lptargs::Vector{Int8} = fill(Int8(0), nv)
 
   for j in 1:nc
     if in(f.variables[i], f.cliques[j])
@@ -158,13 +138,31 @@ function codegen_logtarget(f::GibbsFactor, i::Integer, nc::Integer=num_cliques(f
 
       for v in f.cliques[j]
         if v == f.variables[i]
-          push!(lpargs, :(_state.value))
+          if f.support[f.ofvariable[v]] == Pair(0., Inf) && f.reparametrize[f.ofvariable[v]] == :log
+            push!(lpargs, :(exp(_state.value)))
+            lptargs[f.ofvariable[v]] = Int8(1)
+          else
+            push!(lpargs, :(_state.value))
+          end
         else
-          push!(lpargs, :(_states[$(f.ofvariable[v])].value))
+          if f.support[f.ofvariable[v]] == Pair(0., Inf) && f.reparametrize[f.ofvariable[v]] == :log
+            push!(lpargs, :(exp(_states[$(f.ofvariable[v])].value)))
+            lptargs[f.ofvariable[v]] = Int8(2)
+          else
+            push!(lpargs, :(_states[$(f.ofvariable[v])].value))
+          end
         end
       end
 
       push!(body, :(_state.logtarget += f.logpotentials[$j]($(lpargs...))))
+    end
+  end
+
+  for k in 1:nv
+    if lptargs[k] == 1
+      push!(body, :(_state.logtarget += _state.value))
+    elseif lptargs[k] == 2
+      push!(body, :(_state.logtarget += _states[$k].value))
     end
   end
 
@@ -203,7 +201,7 @@ function generate_variables(f::GibbsFactor, nc::Integer=num_cliques(f), nv::Inte
 
   for i in 1:nv
     if issubtype(f.variabletypes[i], Parameter)
-      variables[i] = f.variabletypes[i](f.variables[i], signature=:low, logtarget=eval(codegen_logtarget(f, i, nc)))
+      variables[i] = f.variabletypes[i](f.variables[i], signature=:low, logtarget=eval(codegen_logtarget(f, i, nc, nv)))
     else
       variables[i] = f.variabletypes[i](f.variables[i])
     end
