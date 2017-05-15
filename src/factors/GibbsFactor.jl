@@ -128,7 +128,9 @@ function GibbsFactor(
   return GibbsFactor(cliques, logpotentials, assignments, transforms, variables, vtypes, vsupport, vreparametrize, n)
 end
 
-function codegen_logtarget(f::GibbsFactor, i::Integer, nc::Integer=num_cliques(f), nv::Integer=num_vertices(f))
+function codegen_logtarget(
+  f::GibbsFactor, i::Integer, ::Type{Univariate}, nc::Integer=num_cliques(f), nv::Integer=num_vertices(f)
+)
   local body = [:(_state.logtarget = 0.)]
   local lpargs::Vector{Expr}
   local lptargs::Vector{Int8} = fill(Int8(0), nv)
@@ -176,6 +178,37 @@ function codegen_logtarget(f::GibbsFactor, i::Integer, nc::Integer=num_cliques(f
   end
 end
 
+function codegen_logtarget(
+  f::GibbsFactor, i::Integer, ::Type{Multivariate}, nc::Integer=num_cliques(f), nv::Integer=num_vertices(f)
+)
+  local body = [:(_state.logtarget = 0.)]
+  local lpargs::Vector{Expr}
+
+  for j in 1:nc
+    if in(f.variables[i], f.cliques[j])
+      lpargs = []
+
+      for v in f.cliques[j]
+        if v == f.variables[i]
+          push!(lpargs, :(_state.value))
+        else
+          push!(lpargs, :(_states[$(f.ofvariable[v])].value))
+        end
+      end
+
+      push!(body, :(_state.logtarget += f.logpotentials[$j]($(lpargs...))))
+    end
+  end
+
+  @gensym logtarget
+
+  quote
+    function $logtarget(_state::$(default_state_type(f.variabletypes[i])), _states::VariableStateVector)
+      $(body...)
+    end
+  end
+end
+
 function codegen_transform(f::GibbsFactor, i::Integer, nt::Integer=num_transforms(f))
   local transformations::Vector{Symbol} = Symbol[a.first for a in f.assignments]
 
@@ -202,7 +235,9 @@ function generate_variables(f::GibbsFactor, nc::Integer=num_cliques(f), nv::Inte
 
   for i in 1:nv
     if issubtype(f.variabletypes[i], Parameter)
-      variables[i] = f.variabletypes[i](f.variables[i], signature=:low, logtarget=eval(codegen_logtarget(f, i, nc, nv)))
+      variables[i] = f.variabletypes[i](
+        f.variables[i], signature=:low, logtarget=eval(codegen_logtarget(f, i, variate_form(f.variabletypes[i]), nc, nv))
+      )
     else
       variables[i] = f.variabletypes[i](f.variables[i])
     end
